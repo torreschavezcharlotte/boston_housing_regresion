@@ -5,6 +5,7 @@ import seaborn as sns
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.impute import SimpleImputer
 
 # Título de la app
 st.title('Análisis de precios de viviendas en Boston')
@@ -16,28 +17,33 @@ def load_data():
 
 data = load_data()
 
+
 st.subheader('Vista previa de los datos')
 st.dataframe(data.head())
 
 # Visualización básica
 st.subheader('Distribución de precios')
 fig, ax = plt.subplots()
-sns.histplot(data['MEDV'], kde=True, ax=ax)
+sns.histplot(data['median_house_value'], kde=True, ax=ax)
 st.pyplot(fig)
 
 # Selección de variables
-features = st.multiselect('Selecciona las variables predictoras:', options=list(data.columns.drop('MEDV')))
+features = st.multiselect('Selecciona las variables predictoras:', options=[col for col in data.columns if col not in ['median_house_value','ocean_proximity']])
 
 if features:
     X = data[features]
-    y = data['MEDV']
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    y = data['median_house_value']
+    # Imputar valores faltantes en X
+    imputer = SimpleImputer(strategy='mean')
+    X_imputed = imputer.fit_transform(X)
+    X_train, X_test, y_train, y_test = train_test_split(X_imputed, y, test_size=0.2, random_state=42)
     model = LinearRegression()
     model.fit(X_train, y_train)
     y_pred = model.predict(X_test)
     st.subheader('Resultados del modelo de regresión lineal')
     st.write(f"R2 Score: {r2_score(y_test, y_pred):.2f}")
-    st.write(f"RMSE: {mean_squared_error(y_test, y_pred, squared=False):.2f}")
+    rmse = mean_squared_error(y_test, y_pred) ** 0.5
+    st.write(f"RMSE: {rmse:.2f}")
     st.line_chart(pd.DataFrame({'Real': y_test, 'Predicción': y_pred}).reset_index(drop=True))
 else:
     st.info('Selecciona al menos una variable para entrenar el modelo.')
